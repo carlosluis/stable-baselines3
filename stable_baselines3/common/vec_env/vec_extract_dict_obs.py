@@ -16,9 +16,9 @@ class VecExtractDictObs(VecEnvWrapper):
         super().__init__(venv=venv, observation_space=venv.observation_space.spaces[self.key])
 
     def reset(self) -> np.ndarray:
-        obs = self.venv.reset()
-        return obs[self.key]
+        obs, info = self.venv.reset()
+        return obs[self.key], info
 
     def step_wait(self) -> VecEnvStepReturn:
-        obs, reward, done, info = self.venv.step_wait()
-        return obs[self.key], reward, done, info
+        obs, reward, done, truncated, info = self.venv.step_wait()
+        return obs[self.key], reward, done, truncated, info

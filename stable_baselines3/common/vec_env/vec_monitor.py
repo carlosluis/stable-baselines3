@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvStepReturn, VecEnvWrapper
+from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvObs, VecEnvResetReturn, VecEnvStepReturn, VecEnvWrapper
 
 
 class VecMonitor(VecEnvWrapper):
@@ -66,19 +66,19 @@ class VecMonitor(VecEnvWrapper):
             self.results_writer = None
         self.info_keywords = info_keywords
 
-    def reset(self) -> VecEnvObs:
-        obs = self.venv.reset()
+    def reset(self) -> VecEnvResetReturn:
+        obs, info = self.venv.reset()
         self.episode_returns = np.zeros(self.num_envs, dtype=np.float32)
         self.episode_lengths = np.zeros(self.num_envs, dtype=np.int32)
-        return obs
+        return obs, info
 
     def step_wait(self) -> VecEnvStepReturn:
-        obs, rewards, dones, infos = self.venv.step_wait()
+        obs, rewards, dones, truncations, infos = self.venv.step_wait()
         self.episode_returns += rewards
         self.episode_lengths += 1
         new_infos = list(infos[:])
         for i in range(len(dones)):
-            if dones[i]:
+            if dones[i] or truncations[i]:  # want statistics to use environment timeouts (truncations)
                 info = infos[i].copy()
                 episode_return = self.episode_returns[i]
                 episode_length = self.episode_lengths[i]
@@ -92,7 +92,7 @@ class VecMonitor(VecEnvWrapper):
                 if self.results_writer:
                     self.results_writer.write_row(episode_info)
                 new_infos[i] = info
-        return obs, rewards, dones, new_infos
+        return obs, rewards, dones, truncations, new_infos
 
     def close(self) -> None:
         if self.results_writer:

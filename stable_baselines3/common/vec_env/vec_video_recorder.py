@@ -64,9 +64,9 @@ class VecVideoRecorder(VecEnvWrapper):
         self.recorded_frames = 0
 
     def reset(self) -> VecEnvObs:
-        obs = self.venv.reset()
+        obs, info = self.venv.reset()
         self.start_video_recorder()
-        return obs
+        return obs, info
 
     def start_video_recorder(self) -> None:
         self.close_video_recorder()
@@ -85,7 +85,7 @@ class VecVideoRecorder(VecEnvWrapper):
         return self.record_video_trigger(self.step_id)
 
     def step_wait(self) -> VecEnvStepReturn:
-        obs, rews, dones, infos = self.venv.step_wait()
+        obs, rews, dones, truncations, infos = self.venv.step_wait()
 
         self.step_id += 1
         if self.recording:
@@ -97,7 +97,7 @@ class VecVideoRecorder(VecEnvWrapper):
         elif self._video_enabled():
             self.start_video_recorder()
 
-        return obs, rews, dones, infos
+        return obs, rews, dones, truncations, infos
 
     def close_video_recorder(self) -> None:
         if self.recording:

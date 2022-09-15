@@ -35,13 +35,16 @@ class DummyRewardEnv(gym.Env):
         self.t += 1
         index = (self.t + self.return_reward_idx) % len(self.returned_rewards)
         returned_value = self.returned_rewards[index]
-        return np.array([returned_value]), returned_value, self.t == len(self.returned_rewards), {}
+        done = self.t == len(self.returned_rewards)  # keep here to not modify reward statistics for testing
+        truncated = False
+        # TODO: create tests that check if truncation does not modify the reward statistics?
+        return np.array([returned_value]), returned_value, done, truncated, {}
 
     def reset(self, seed: Optional[int] = None):
         if seed is not None:
             super().reset(seed=seed)
         self.t = 0
-        return np.array([self.returned_rewards[self.return_reward_idx]])
+        return np.array([self.returned_rewards[self.return_reward_idx]]), {}
 
 
 class DummyDictEnv(gym.Env):
@@ -63,13 +66,14 @@ class DummyDictEnv(gym.Env):
     def reset(self, seed: Optional[int] = None):
         if seed is not None:
             super().reset(seed=seed)
-        return self.observation_space.sample()
+        return self.observation_space.sample(), {}
 
     def step(self, action):
         obs = self.observation_space.sample()
         reward = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], {})
         done = np.random.rand() > 0.8
-        return obs, reward, done, {}
+        truncated = False
+        return obs, reward, done, truncated, {}
 
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, _info) -> np.float32:
         distance = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
@@ -95,12 +99,13 @@ class DummyMixedDictEnv(gym.Env):
     def reset(self, seed: Optional[int] = None):
         if seed is not None:
             super().reset(seed=seed)
-        return self.observation_space.sample()
+        return self.observation_space.sample(), {}
 
     def step(self, action):
         obs = self.observation_space.sample()
         done = np.random.rand() > 0.8
-        return obs, 0.0, done, {}
+        truncated = False
+        return obs, 0.0, done, truncated, {}
 
 
 def allclose(obs_1, obs_2):
@@ -262,16 +267,21 @@ def test_obs_rms_vec_normalize():
 
 @pytest.mark.parametrize("make_env", [make_env, make_dict_env])
 def test_vec_env(tmp_path, make_env):
+    # TODO: this test fails as the deserialized != the original. returns are not equal.
+    # setting returns of trucnations to zero in the step_wait of the VecNormalize class
+    # fixes this, but this is because then the final return is zero, which happens to be the
+    # init value and hence the deserialization succeeds.
     """Test VecNormalize Object"""
     clip_obs = 0.5
     clip_reward = 5.0
 
     orig_venv = DummyVecEnv([make_env])
     norm_venv = VecNormalize(orig_venv, norm_obs=True, norm_reward=True, clip_obs=clip_obs, clip_reward=clip_reward)
-    _, done = norm_venv.reset(), [False]
-    while not done[0]:
+    _, info = norm_venv.reset()
+    done, truncated = [False], [False]
+    while not (done[0] or truncated[0]):
         actions = [norm_venv.action_space.sample()]
-        obs, rew, done, _ = norm_venv.step(actions)
+        obs, rew, done, truncated, _ = norm_venv.step(actions)
         if isinstance(obs, dict):
             for key in obs.keys():
                 assert np.max(np.abs(obs[key])) <= clip_obs
@@ -289,7 +299,7 @@ def test_get_original():
     venv = _make_warmstart_cartpole()
     for _ in range(3):
         actions = [venv.action_space.sample()]
-        obs, rewards, _, _ = venv.step(actions)
+        obs, rewards, _, _, _ = venv.step(actions)
         obs = obs[0]
         orig_obs = venv.get_original_obs()[0]
         rewards = rewards[0]
@@ -308,7 +318,7 @@ def test_get_original_dict():
     venv = _make_warmstart_dict_env()
     for _ in range(3):
         actions = [venv.action_space.sample()]
-        obs, rewards, _, _ = venv.step(actions)
+        obs, rewards, _, _, _ = venv.step(actions)
         # obs = obs[0]
         orig_obs = venv.get_original_obs()
         rewards = rewards[0]
@@ -338,7 +348,7 @@ def test_normalize_dict_selected_keys():
     venv = _make_warmstart_dict_env(norm_obs=True, norm_obs_keys=["observation"])
     for _ in range(3):
         actions = [venv.action_space.sample()]
-        obs, rewards, _, _ = venv.step(actions)
+        obs, rewards, _, _, _ = venv.step(actions)
         orig_obs = venv.get_original_obs()
 
         # "observation" is expected to be normalized
@@ -420,13 +430,13 @@ def test_sync_vec_normalize(make_env):
     # Initialize running mean
     latest_reward = None
     for _ in range(100):
-        _, latest_reward, _, _ = env.step([env.action_space.sample()])
+        _, latest_reward, _, _, _ = env.step([env.action_space.sample()])
 
     # Check that unnormalized reward is same as original reward
     original_latest_reward = env.get_original_reward()
     assert np.allclose(original_latest_reward, env.unnormalize_reward(latest_reward))
 
-    obs = env.reset()
+    obs, _ = env.reset()
     dummy_rewards = np.random.rand(10)
     original_obs = env.get_original_obs()
     # Check that unnormalization works

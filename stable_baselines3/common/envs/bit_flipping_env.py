@@ -25,7 +25,7 @@ class BitFlippingEnv(Env):
     :param channel_first: Whether to use channel-first or last image.
     """
 
-    spec = EnvSpec("BitFlippingEnv-v0","no-entry-point")
+    spec = EnvSpec("BitFlippingEnv-v0", "no-entry-point")
 
     def __init__(
         self,
@@ -162,7 +162,7 @@ class BitFlippingEnv(Env):
             self.obs_space.seed(seed)
         self.current_step = 0
         self.state = self.obs_space.sample()
-        return self._get_obs()
+        return self._get_obs(), {}
 
     def step(self, action: Union[np.ndarray, int]) -> GymStepReturn:
         """
@@ -181,8 +181,9 @@ class BitFlippingEnv(Env):
         self.current_step += 1
         # Episode terminate when we reached the goal or the max number of steps
         info = {"is_success": done}
-        done = done or self.current_step >= self.max_steps
-        return obs, reward, done, info
+        truncated = self.current_step >= self.max_steps
+        done = done
+        return obs, reward, done, truncated, info
 
     def compute_reward(
         self, achieved_goal: Union[int, np.ndarray], desired_goal: Union[int, np.ndarray], _info: Optional[Dict[str, Any]]

@@ -31,14 +31,15 @@ class CustomGymEnv(gym.Env):
             self.seed(seed)
         self.current_step = 0
         self._choose_next_state()
-        return self.state
+        return self.state, {}
 
     def step(self, action):
         reward = float(np.random.rand())
         self._choose_next_state()
         self.current_step += 1
-        done = self.current_step >= self.ep_length
-        return self.state, reward, done, {}
+        done = False
+        truncated = self.current_step >= self.ep_length
+        return self.state, reward, done, truncated, {}
 
     def _choose_next_state(self):
         self.state = self.observation_space.sample()
@@ -147,13 +148,14 @@ class StepEnv(gym.Env):
 
     def reset(self):
         self.current_step = 0
-        return np.array([self.current_step], dtype="int")
+        return np.array([self.current_step], dtype="int"), {}
 
     def step(self, action):
         prev_step = self.current_step
         self.current_step += 1
-        done = self.current_step >= self.max_steps
-        return np.array([prev_step], dtype="int"), 0.0, done, {}
+        done = False
+        truncated = self.current_step >= self.max_steps
+        return np.array([prev_step], dtype="int"), 0.0, done, truncated, {}
 
 
 @pytest.mark.parametrize("vec_env_class", VEC_ENV_CLASSES)
@@ -171,18 +173,17 @@ def test_vecenv_terminal_obs(vec_env_class, vec_env_wrapper):
             vec_env = vec_env_wrapper(vec_env)
 
     zero_acts = np.zeros((N_ENVS,), dtype="int")
-    prev_obs_b = vec_env.reset()
+    prev_obs_b, _ = vec_env.reset()
     for step_num in range(1, max(step_nums) + 1):
-        obs_b, _, done_b, info_b = vec_env.step(zero_acts)
+        obs_b, _, done_b, truncated_b, info_b = vec_env.step(zero_acts)
         assert len(obs_b) == N_ENVS
         assert len(done_b) == N_ENVS
+        assert len(truncated_b) == N_ENVS
         assert len(info_b) == N_ENVS
-        env_iter = zip(prev_obs_b, obs_b, done_b, info_b, step_nums)
-        for prev_obs, obs, done, info, final_step_num in env_iter:
-            assert done == (step_num == final_step_num)
-            if not done:
-                assert "terminal_observation" not in info
-            else:
+        env_iter = zip(prev_obs_b, obs_b, done_b, truncated_b, info_b, step_nums)
+        for prev_obs, obs, done, truncated, info, final_step_num in env_iter:
+            assert truncated == (step_num == final_step_num)  # only works here bc there are no true terminations
+            if done:
                 terminal_obs = info["terminal_observation"]
 
                 # do some rough ordering checks that should work for all
@@ -218,13 +219,14 @@ def check_vecenv_spaces(vec_env_class, space, obs_assert):
         return CustomGymEnv(space)
 
     vec_env = vec_env_class([make_env for _ in range(N_ENVS)])
-    obs = vec_env.reset()
+    obs, _ = vec_env.reset()
     obs_assert(obs)
 
     dones = [False] * N_ENVS
-    while not any(dones):
+    truncations = [False] * N_ENVS
+    while not (any(dones) or any(truncations)):
         actions = [vec_env.action_space.sample() for _ in range(N_ENVS)]
-        obs, _rews, dones, _infos = vec_env.step(actions)
+        obs, _rews, dones, truncations, _infos = vec_env.step(actions)
         obs_assert(obs)
     vec_env.close()
 
@@ -381,7 +383,7 @@ def test_framestack_vecenv():
 
     vec_env = DummyVecEnv([make_image_env for _ in range(N_ENVS)])
     vec_env = VecFrameStack(vec_env, n_stack=2)
-    obs, _, _, _ = vec_env.step(zero_acts)
+    obs, _, _, _, _ = vec_env.step(zero_acts)
     vec_env.close()
 
     # Should be stacked on the last dimension
@@ -390,7 +392,7 @@ def test_framestack_vecenv():
     # Try automatic stacking on first dimension now
     vec_env = DummyVecEnv([make_transposed_image_env for _ in range(N_ENVS)])
     vec_env = VecFrameStack(vec_env, n_stack=2)
-    obs, _, _, _ = vec_env.step(transposed_zero_acts)
+    obs, _, _, _, _ = vec_env.step(transposed_zero_acts)
     vec_env.close()
 
     # Should be stacked on the first dimension (note the transposing in make_transposed_image_env)
@@ -399,7 +401,7 @@ def test_framestack_vecenv():
     # Try forcing dimensions
     vec_env = DummyVecEnv([make_image_env for _ in range(N_ENVS)])
     vec_env = VecFrameStack(vec_env, n_stack=2, channels_order="last")
-    obs, _, _, _ = vec_env.step(zero_acts)
+    obs, _, _, _, _ = vec_env.step(zero_acts)
     vec_env.close()
 
     # Should be stacked on the last dimension
@@ -407,7 +409,7 @@ def test_framestack_vecenv():
 
     vec_env = DummyVecEnv([make_image_env for _ in range(N_ENVS)])
     vec_env = VecFrameStack(vec_env, n_stack=2, channels_order="first")
-    obs, _, _, _ = vec_env.step(zero_acts)
+    obs, _, _, _, _ = vec_env.step(zero_acts)
     vec_env.close()
 
     # Should be stacked on the first dimension
@@ -458,9 +460,9 @@ def test_backward_compat_seed(vec_env_class):
 
     vec_env = vec_env_class([make_env for _ in range(N_ENVS)])
     vec_env.seed(3)
-    obs = vec_env.reset()
+    obs, _ = vec_env.reset()
     vec_env.seed(3)
-    new_obs = vec_env.reset()
+    new_obs, _ = vec_env.reset()
     assert np.allclose(new_obs, obs)
 
 
@@ -484,8 +486,8 @@ def test_vec_seeding(vec_env_class):
         vec_env = vec_env_class([make_env] * n_envs)
         # Seed with no argument
         vec_env.seed()
-        obs = vec_env.reset()
-        _, rewards, _, _ = vec_env.step(np.array([vec_env.action_space.sample() for _ in range(n_envs)]))
+        obs, _ = vec_env.reset()
+        _, rewards, _, _, _ = vec_env.step(np.array([vec_env.action_space.sample() for _ in range(n_envs)]))
         # Seed should be different per process
         assert not np.allclose(obs[0], obs[1])
         assert not np.allclose(rewards[0], rewards[1])

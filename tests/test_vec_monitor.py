@@ -27,7 +27,7 @@ def test_vec_monitor(tmp_path):
     total_steps = 1000
     ep_len, ep_reward = 0, 0
     for _ in range(total_steps):
-        _, rewards, dones, infos = monitor_env.step([monitor_env.action_space.sample()])
+        _, rewards, dones, truncations, infos = monitor_env.step([monitor_env.action_space.sample()])
         ep_len += 1
         ep_reward += rewards[0]
         if dones[0]:
@@ -61,8 +61,8 @@ def test_vec_monitor_info_keywords(tmp_path):
     monitor_env.reset()
     total_steps = 1000
     for _ in range(total_steps):
-        _, _, dones, infos = monitor_env.step([monitor_env.action_space.sample()])
-        if dones[0]:
+        _, _, dones, truncations, infos = monitor_env.step([monitor_env.action_space.sample()])
+        if dones[0] or truncations[0]:
             assert "is_success" in infos[0]["episode"]
 
     monitor_env.close()
@@ -96,8 +96,8 @@ def test_vec_monitor_load_results(tmp_path):
     monitor_env1.reset()
     episode_count1 = 0
     for _ in range(1000):
-        _, _, dones, _ = monitor_env1.step([monitor_env1.action_space.sample()])
-        if dones[0]:
+        _, _, dones, truncations, _ = monitor_env1.step([monitor_env1.action_space.sample()])
+        if dones[0] or truncations[0]:
             episode_count1 += 1
             monitor_env1.reset()
 
@@ -116,8 +116,8 @@ def test_vec_monitor_load_results(tmp_path):
     monitor_env2.reset()
     episode_count2 = 0
     for _ in range(1000):
-        _, _, dones, _ = monitor_env2.step([monitor_env2.action_space.sample()])
-        if dones[0]:
+        _, _, dones, truncations, _ = monitor_env2.step([monitor_env2.action_space.sample()])
+        if dones[0] or truncations[0]:
             episode_count2 += 1
             monitor_env2.reset()
 

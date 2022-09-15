@@ -92,7 +92,7 @@ class VecTransposeImage(VecEnvWrapper):
         return observations
 
     def step_wait(self) -> VecEnvStepReturn:
-        observations, rewards, dones, infos = self.venv.step_wait()
+        observations, rewards, dones, truncations, infos = self.venv.step_wait()
 
         # Transpose the terminal observations
         for idx, done in enumerate(dones):
@@ -101,13 +101,14 @@ class VecTransposeImage(VecEnvWrapper):
             if "terminal_observation" in infos[idx]:
                 infos[idx]["terminal_observation"] = self.transpose_observations(infos[idx]["terminal_observation"])
 
-        return self.transpose_observations(observations), rewards, dones, infos
+        return self.transpose_observations(observations), rewards, dones, truncations, infos
 
     def reset(self) -> Union[np.ndarray, Dict]:
         """
         Reset all environments
         """
-        return self.transpose_observations(self.venv.reset())
+        observations, infos = self.venv.reset()
+        return self.transpose_observations(observations), infos
 
     def close(self) -> None:
         self.venv.close()

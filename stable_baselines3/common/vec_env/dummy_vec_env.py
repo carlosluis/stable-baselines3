@@ -5,7 +5,7 @@ from typing import Any, Callable, List, Optional, Sequence, Type, Union
 import gym
 import numpy as np
 
-from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn
+from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvResetReturn, VecEnvStepReturn
 from stable_baselines3.common.vec_env.util import copy_obs_dict, dict_to_obs, obs_space_info
 
 
@@ -30,6 +30,7 @@ class DummyVecEnv(VecEnv):
 
         self.buf_obs = OrderedDict([(k, np.zeros((self.num_envs,) + tuple(shapes[k]), dtype=dtypes[k])) for k in self.keys])
         self.buf_dones = np.zeros((self.num_envs,), dtype=bool)
+        self.buf_truncations = np.zeros((self.num_envs,), dtype=bool)
         self.buf_rews = np.zeros((self.num_envs,), dtype=np.float32)
         self.buf_infos = [{} for _ in range(self.num_envs)]
         self.actions = None
@@ -40,15 +41,26 @@ class DummyVecEnv(VecEnv):
 
     def step_wait(self) -> VecEnvStepReturn:
         for env_idx in range(self.num_envs):
-            obs, self.buf_rews[env_idx], self.buf_dones[env_idx], self.buf_infos[env_idx] = self.envs[env_idx].step(
-                self.actions[env_idx]
-            )
-            if self.buf_dones[env_idx]:
+            (
+                obs,
+                self.buf_rews[env_idx],
+                self.buf_dones[env_idx],
+                self.buf_truncations[env_idx],
+                self.buf_infos[env_idx],
+            ) = self.envs[env_idx].step(self.actions[env_idx])
+            if self.buf_dones[env_idx] or self.buf_truncations[env_idx]:
                 # save final observation where user can get it, then reset
                 self.buf_infos[env_idx]["terminal_observation"] = obs
-                obs = self.envs[env_idx].reset()
+                obs, info = self.envs[env_idx].reset()
+                self.buf_infos[env_idx].update(info)  # do not overwrite to keep obs in dict
             self._save_obs(env_idx, obs)
-        return (self._obs_from_buf(), np.copy(self.buf_rews), np.copy(self.buf_dones), deepcopy(self.buf_infos))
+        return (
+            self._obs_from_buf(),
+            np.copy(self.buf_rews),
+            np.copy(self.buf_dones),
+            np.copy(self.buf_truncations),
+            deepcopy(self.buf_infos),
+        )
 
     def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:
         # Avoid circular import
@@ -61,11 +73,11 @@ class DummyVecEnv(VecEnv):
             seeds.append(compat_gym_seed(env, seed=seed + idx))
         return seeds
 
-    def reset(self) -> VecEnvObs:
+    def reset(self) -> VecEnvResetReturn:
         for env_idx in range(self.num_envs):
-            obs = self.envs[env_idx].reset()
+            obs, self.buf_infos[env_idx] = self.envs[env_idx].reset()
             self._save_obs(env_idx, obs)
-        return self._obs_from_buf()
+        return self._obs_from_buf(), self.buf_infos
 
     def close(self) -> None:
         for env in self.envs:

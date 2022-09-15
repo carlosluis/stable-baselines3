@@ -10,12 +10,14 @@ import numpy as np
 # Define type aliases here to avoid circular import
 # Used when we want to access one or more VecEnv
 VecEnvIndices = Union[None, int, Iterable[int]]
-# VecEnvObs is what is returned by the reset() method
-# it contains the observation for each env
+# VecEnvObs contains the observation for each env
 VecEnvObs = Union[np.ndarray, Dict[str, np.ndarray], Tuple[np.ndarray, ...]]
 # VecEnvStepReturn is what is returned by the step() method
-# it contains the observation, reward, done, info for each env
-VecEnvStepReturn = Tuple[VecEnvObs, np.ndarray, np.ndarray, List[Dict]]
+# it contains the observation, reward, done, truncation, info for each env
+VecEnvStepReturn = Tuple[VecEnvObs, np.ndarray, np.ndarray, np.ndarray, List[Dict]]
+# VecEnvResetReturn is what is returned by the reset() method
+# it contains the observation, info for each env
+VecEnvResetReturn = Tuple[VecEnvObs, List[Dict]]
 
 
 def tile_images(img_nhwc: Sequence[np.ndarray]) -> np.ndarray:  # pragma: no cover
@@ -61,7 +63,7 @@ class VecEnv(ABC):
         self.action_space = action_space
 
     @abstractmethod
-    def reset(self) -> VecEnvObs:
+    def reset(self) -> VecEnvResetReturn:
         """
         Reset all the environments and return an array of
         observations, or a tuple of observation arrays.
@@ -70,7 +72,7 @@ class VecEnv(ABC):
         be cancelled and step_wait() should not be called
         until step_async() is invoked again.
 
-        :return: observation
+        :return: observation, info
         """
         raise NotImplementedError()
 
@@ -91,7 +93,7 @@ class VecEnv(ABC):
         """
         Wait for the step taken with step_async().
 
-        :return: observation, reward, done, information
+        :return: observation, reward, done, truncation, information
         """
         raise NotImplementedError()
 
@@ -264,7 +266,7 @@ class VecEnvWrapper(VecEnv):
         self.venv.step_async(actions)
 
     @abstractmethod
-    def reset(self) -> VecEnvObs:
+    def reset(self) -> VecEnvResetReturn:
         pass
 
     @abstractmethod

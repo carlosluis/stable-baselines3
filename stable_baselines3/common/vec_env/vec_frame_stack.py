@@ -45,19 +45,19 @@ class VecFrameStack(VecEnvWrapper):
         self,
     ) -> Tuple[Union[np.ndarray, Dict[str, np.ndarray]], np.ndarray, np.ndarray, List[Dict[str, Any]],]:
 
-        observations, rewards, dones, infos = self.venv.step_wait()
+        observations, rewards, dones, truncations, infos = self.venv.step_wait()
 
         observations, infos = self.stackedobs.update(observations, dones, infos)
 
-        return observations, rewards, dones, infos
+        return observations, rewards, dones, truncations, infos
 
     def reset(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         """
         Reset all environments
         """
-        observation = self.venv.reset()
+        observation, info = self.venv.reset()
         observation = self.stackedobs.reset(observation)
-        return observation
+        return observation, info
 
     def close(self) -> None:
         self.venv.close()

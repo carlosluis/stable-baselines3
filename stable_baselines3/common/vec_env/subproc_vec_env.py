@@ -10,6 +10,7 @@ from stable_baselines3.common.vec_env.base_vec_env import (
     VecEnv,
     VecEnvIndices,
     VecEnvObs,
+    VecEnvResetReturn,
     VecEnvStepReturn,
 )
 
@@ -29,17 +30,18 @@ def _worker(  # noqa: C901
         try:
             cmd, data = remote.recv()
             if cmd == "step":
-                observation, reward, done, info = env.step(data)
-                if done:
+                observation, reward, done, truncated, info = env.step(data)
+                if done or truncated:
                     # save final observation where user can get it, then reset
                     info["terminal_observation"] = observation
-                    observation = env.reset()
-                remote.send((observation, reward, done, info))
+                    observation, reset_info = env.reset()
+                    info.update(reset_info)  # keep info from step and add reset info
+                remote.send((observation, reward, done, truncated, info))
             elif cmd == "seed":
                 remote.send(compat_gym_seed(env, seed=data))
             elif cmd == "reset":
-                observation = env.reset()
-                remote.send(observation)
+                observation, info = env.reset()
+                remote.send((observation, info))
             elif cmd == "render":
                 remote.send(env.render(data))
             elif cmd == "close":
@@ -122,8 +124,8 @@ class SubprocVecEnv(VecEnv):
     def step_wait(self) -> VecEnvStepReturn:
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
-        obs, rews, dones, infos = zip(*results)
-        return _flatten_obs(obs, self.observation_space), np.stack(rews), np.stack(dones), infos
+        obs, rews, dones, truncations, infos = zip(*results)
+        return _flatten_obs(obs, self.observation_space), np.stack(rews), np.stack(dones), np.stack(truncations), infos
 
     def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:
         if seed is None:
@@ -132,11 +134,12 @@ class SubprocVecEnv(VecEnv):
             remote.send(("seed", seed + idx))
         return [remote.recv() for remote in self.remotes]
 
-    def reset(self) -> VecEnvObs:
+    def reset(self) -> VecEnvResetReturn:
         for remote in self.remotes:
             remote.send(("reset", None))
-        obs = [remote.recv() for remote in self.remotes]
-        return _flatten_obs(obs, self.observation_space)
+        results = [remote.recv() for remote in self.remotes]
+        obs, infos = zip(*results)
+        return _flatten_obs(obs, self.observation_space), infos
 
     def close(self) -> None:
         if self.closed:

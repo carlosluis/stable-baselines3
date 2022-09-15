@@ -8,7 +8,7 @@ import numpy as np
 
 from stable_baselines3.common import utils
 from stable_baselines3.common.running_mean_std import RunningMeanStd
-from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper
+from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvResetReturn, VecEnvStepReturn, VecEnvWrapper
 
 
 class VecNormalize(VecEnvWrapper):
@@ -146,7 +146,7 @@ class VecNormalize(VecEnvWrapper):
 
         where ``dones`` is a boolean vector indicating whether each element is new.
         """
-        obs, rewards, dones, infos = self.venv.step_wait()
+        obs, rewards, dones, truncations, infos = self.venv.step_wait()
         self.old_obs = obs
         self.old_reward = rewards
 
@@ -163,15 +163,20 @@ class VecNormalize(VecEnvWrapper):
             self._update_reward(rewards)
         rewards = self.normalize_reward(rewards)
 
-        # Normalize the terminal observations
-        for idx, done in enumerate(dones):
+        # Normalize the final observations
+        for idx in range(len(dones)):
+            done = dones[idx] or truncations[idx]
             if not done:
                 continue
             if "terminal_observation" in infos[idx]:
                 infos[idx]["terminal_observation"] = self.normalize_obs(infos[idx]["terminal_observation"])
 
+        # only update returns of true final states
+        # TODO: (@tlpss): someone more experienced should check if we indeed do not
+        # want the statistics to be influenced by truncations.
         self.returns[dones] = 0
-        return obs, rewards, dones, infos
+
+        return obs, rewards, dones, truncations, infos
 
     def _update_reward(self, reward: np.ndarray) -> None:
         """Update reward normalization statistics."""
@@ -250,12 +255,12 @@ class VecNormalize(VecEnvWrapper):
         """
         return self.old_reward.copy()
 
-    def reset(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+    def reset(self) -> VecEnvResetReturn:
         """
         Reset all environments
         :return: first observation of the episode
         """
-        obs = self.venv.reset()
+        obs, info = self.venv.reset()
         self.old_obs = obs
         self.returns = np.zeros(self.num_envs)
         if self.training and self.norm_obs:
@@ -264,7 +269,7 @@ class VecNormalize(VecEnvWrapper):
                     self.obs_rms[key].update(obs[key])
             else:
                 self.obs_rms.update(obs)
-        return self.normalize_obs(obs)
+        return self.normalize_obs(obs), info
 
     @staticmethod
     def load(load_path: str, venv: VecEnv) -> "VecNormalize":

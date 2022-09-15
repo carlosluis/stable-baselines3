@@ -32,21 +32,21 @@ class VecCheckNan(VecEnvWrapper):
         self.venv.step_async(actions)
 
     def step_wait(self) -> VecEnvStepReturn:
-        observations, rewards, news, infos = self.venv.step_wait()
+        observations, rewards, news, truncations, infos = self.venv.step_wait()
 
         self._check_val(async_step=False, observations=observations, rewards=rewards, news=news)
 
         self._observations = observations
-        return observations, rewards, news, infos
+        return observations, rewards, news, truncations, infos
 
     def reset(self) -> VecEnvObs:
-        observations = self.venv.reset()
+        observations, infos = self.venv.reset()
         self._actions = None
 
         self._check_val(async_step=False, observations=observations)
 
         self._observations = observations
-        return observations
+        return observations, infos
 
     def _check_val(self, *, async_step: bool, **kwargs) -> None:
         # if warn and warn once and have warned once: then stop checking
