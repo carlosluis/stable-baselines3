@@ -25,7 +25,7 @@ class BitFlippingEnv(Env):
     :param channel_first: Whether to use channel-first or last image.
     """
 
-    spec = EnvSpec("BitFlippingEnv-v0")
+    spec = EnvSpec("BitFlippingEnv-v0","no-entry-point")
 
     def __init__(
         self,
