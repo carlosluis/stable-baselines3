@@ -122,6 +122,8 @@ def test_device_buffer(replay_buffer_cls, device):
         next_obs, reward, done, truncation, info = env.step(action)
         if replay_buffer_cls in [RolloutBuffer, DictRolloutBuffer]:
             episode_start, values, log_prob = np.zeros(1), th.zeros(1), th.ones(1)
+            # here we do not bootstrap the rewards for the rollout buffer for simplicity
+            # see the OnPolicyAlgorithm::collect_rollouts method for how to do this.
             buffer.add(obs, action, reward, episode_start, values, log_prob)
         else:
             buffer.add(obs, next_obs, action, reward, done, truncation, info)

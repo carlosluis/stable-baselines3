@@ -79,12 +79,12 @@ def evaluate_policy(
 
     current_rewards = np.zeros(n_envs)
     current_lengths = np.zeros(n_envs, dtype="int")
-    observations = env.reset()
+    observations, info = env.reset()
     states = None
     episode_starts = np.ones((env.num_envs,), dtype=bool)
     while (episode_counts < episode_count_targets).any():
         actions, states = model.predict(observations, state=states, episode_start=episode_starts, deterministic=deterministic)
-        observations, rewards, dones, infos = env.step(actions)
+        observations, rewards, dones, truncations, infos = env.step(actions)
         current_rewards += rewards
         current_lengths += 1
         for i in range(n_envs):
@@ -93,13 +93,14 @@ def evaluate_policy(
                 # unpack values so that the callback can access the local variables
                 reward = rewards[i]
                 done = dones[i]
+                truncated = truncations[i]
                 info = infos[i]
                 episode_starts[i] = done
 
                 if callback is not None:
                     callback(locals(), globals())
 
-                if dones[i]:
+                if dones[i] or truncations[i]:
                     if is_monitor_wrapped:
                         # Atari wrapper can send a "done" signal when
                         # the agent loses a life, but it does not correspond

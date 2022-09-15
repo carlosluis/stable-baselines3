@@ -174,7 +174,7 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             if isinstance(self.action_space, gym.spaces.Box):
                 clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
 
-            new_obs, rewards, dones, infos = env.step(clipped_actions)
+            new_obs, rewards, dones, truncations, infos = env.step(clipped_actions)
 
             self.num_timesteps += env.num_envs
 
@@ -190,14 +190,10 @@ class OnPolicyAlgorithm(BaseAlgorithm):
                 # Reshape in case of discrete action
                 actions = actions.reshape(-1, 1)
 
-            # Handle timeout by bootstraping with value function
+            # Handle timeout( aka truncation) by bootstraping with value function
             # see GitHub issue #633
             for idx, done in enumerate(dones):
-                if (
-                    done
-                    and infos[idx].get("terminal_observation") is not None
-                    and infos[idx].get("TimeLimit.truncated", False)
-                ):
+                if done and infos[idx].get("terminal_observation") is not None and truncations[idx] is True:
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
                         terminal_value = self.policy.predict_values(terminal_obs)[0]

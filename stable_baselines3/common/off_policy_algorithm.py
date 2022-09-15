@@ -461,6 +461,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         new_obs: Union[np.ndarray, Dict[str, np.ndarray]],
         reward: np.ndarray,
         dones: np.ndarray,
+        truncations: np.ndarray,
         infos: List[Dict[str, Any]],
     ) -> None:
         """
@@ -473,7 +474,8 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         :param new_obs: next observation in the current episode
             or first observation of the episode (when dones is True)
         :param reward: reward for the current transition
-        :param dones: Termination signal
+        :param dones: final state signal
+        :param truncations: episode truncation signal
         :param infos: List of additional information about the transition.
             It may contain the terminal observations and information about timeout.
         """
@@ -489,8 +491,8 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         next_obs = deepcopy(new_obs_)
         # As the VecEnv resets automatically, new_obs is already the
         # first observation of the next episode
-        for i, done in enumerate(dones):
-            if done and infos[i].get("terminal_observation") is not None:
+        for i in range(len(dones)):
+            if (dones[i] or truncations[i]) and infos[i].get("terminal_observation") is not None:
                 if isinstance(next_obs, dict):
                     next_obs_ = infos[i]["terminal_observation"]
                     # VecNormalize normalizes the terminal observation
@@ -511,6 +513,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             buffer_action,
             reward_,
             dones,
+            truncations,
             infos,
         )
 
@@ -578,7 +581,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             actions, buffer_actions = self._sample_action(learning_starts, action_noise, env.num_envs)
 
             # Rescale and perform action
-            new_obs, rewards, dones, infos = env.step(actions)
+            new_obs, rewards, dones, truncations, infos = env.step(actions)
 
             self.num_timesteps += env.num_envs
             num_collected_steps += 1
@@ -590,10 +593,10 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 return RolloutReturn(num_collected_steps * env.num_envs, num_collected_episodes, continue_training=False)
 
             # Retrieve reward and episode length if using Monitor wrapper
-            self._update_info_buffer(infos, dones)
+            self._update_info_buffer(infos, np.logical_or(dones, truncations))
 
             # Store data in replay buffer (normalized action and unnormalized observation)
-            self._store_transition(replay_buffer, buffer_actions, new_obs, rewards, dones, infos)
+            self._store_transition(replay_buffer, buffer_actions, new_obs, rewards, dones, truncations, infos)
 
             self._update_current_progress_remaining(self.num_timesteps, self._total_timesteps)
 
@@ -603,8 +606,8 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             # see https://github.com/hill-a/stable-baselines/issues/900
             self._on_step()
 
-            for idx, done in enumerate(dones):
-                if done:
+            for idx in range(len(dones)):
+                if dones[idx] or truncations[idx]:
                     # Update stats
                     num_collected_episodes += 1
                     self._episode_num += 1

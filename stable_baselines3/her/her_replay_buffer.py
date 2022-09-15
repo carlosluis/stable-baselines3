@@ -64,9 +64,6 @@ class HerReplayBuffer(DictReplayBuffer):
     :param device: PyTorch device
     :param n_sampled_goal: Number of virtual transitions to create per real transition,
         by sampling new goals.
-    :param handle_timeout_termination: Handle timeout termination (due to timelimit)
-        separately and treat the task as infinite horizon task.
-        https://github.com/DLR-RM/stable-baselines3/issues/284
     """
 
     def __init__(
@@ -79,7 +76,6 @@ class HerReplayBuffer(DictReplayBuffer):
         n_sampled_goal: int = 4,
         goal_selection_strategy: Union[GoalSelectionStrategy, str] = "future",
         online_sampling: bool = True,
-        handle_timeout_termination: bool = True,
     ):
 
         super().__init__(buffer_size, env.observation_space, env.action_space, device, env.num_envs)
@@ -113,10 +109,6 @@ class HerReplayBuffer(DictReplayBuffer):
             replay_buffer = None
         self.replay_buffer = replay_buffer
         self.online_sampling = online_sampling
-
-        # Handle timeouts termination properly if needed
-        # see https://github.com/DLR-RM/stable-baselines3/issues/284
-        self.handle_timeout_termination = handle_timeout_termination
 
         # buffer with episodes
         # number of episodes which can be stored until buffer size is reached
@@ -387,6 +379,7 @@ class HerReplayBuffer(DictReplayBuffer):
         action: np.ndarray,
         reward: np.ndarray,
         done: np.ndarray,
+        truncated: np.ndarray,
         infos: List[Dict[str, Any]],
     ) -> None:
 
@@ -395,10 +388,9 @@ class HerReplayBuffer(DictReplayBuffer):
             self.info_buffer[self.pos] = deque(maxlen=self.max_episode_length)
 
         # Remove termination signals due to timeout
-        if self.handle_timeout_termination:
-            done_ = done * (1 - np.array([info.get("TimeLimit.truncated", False) for info in infos]))
-        else:
-            done_ = done
+        # TODO: (@ŧlpss): is it okay not to store truncated in this _buffer?
+        # it was like this before, just want to check.
+        done_ = done * (1 - truncated)
 
         self._buffer["observation"][self.pos][self.current_idx] = obs["observation"]
         self._buffer["achieved_goal"][self.pos][self.current_idx] = obs["achieved_goal"]
@@ -419,6 +411,7 @@ class HerReplayBuffer(DictReplayBuffer):
                 action,
                 reward,
                 done,
+                truncated,
                 infos,
             )
 
@@ -477,6 +470,7 @@ class HerReplayBuffer(DictReplayBuffer):
                     rewards[i],
                     # We consider the transition as non-terminal
                     done=[False],
+                    truncated=[False],
                     infos=[{}],
                 )
 
