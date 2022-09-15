@@ -165,10 +165,6 @@ class ReplayBuffer(BaseBuffer):
         at a cost of more complexity.
         See https://github.com/DLR-RM/stable-baselines3/issues/37#issuecomment-637501195
         and https://github.com/DLR-RM/stable-baselines3/pull/28#issuecomment-637559274
-        Cannot be used in combination with handle_timeout_termination.
-    :param handle_timeout_termination: Handle timeout termination (due to timelimit)
-        separately and treat the task as infinite horizon task.
-        https://github.com/DLR-RM/stable-baselines3/issues/284
     """
 
     def __init__(
@@ -179,7 +175,6 @@ class ReplayBuffer(BaseBuffer):
         device: Union[th.device, str] = "auto",
         n_envs: int = 1,
         optimize_memory_usage: bool = False,
-        handle_timeout_termination: bool = True,
     ):
         super().__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
 
@@ -190,12 +185,14 @@ class ReplayBuffer(BaseBuffer):
         if psutil is not None:
             mem_available = psutil.virtual_memory().available
 
-        # there is a bug if both optimize_memory_usage and handle_timeout_termination are true
+        # there is a bug if both optimize_memory_usage and truncations are used
         # see https://github.com/DLR-RM/stable-baselines3/issues/934
-        if optimize_memory_usage and handle_timeout_termination:
+        # as truncations are now used by default in gym v0.26, this makes optimize_memory_usage
+        # de factor unusable until this bug is fixed.
+        if optimize_memory_usage:
             raise ValueError(
                 "ReplayBuffer does not support optimize_memory_usage = True "
-                "and handle_timeout_termination = True simultaneously."
+                "and truncation, which is now enabled by default since Gym v0.26."
             )
         self.optimize_memory_usage = optimize_memory_usage
 
@@ -213,8 +210,7 @@ class ReplayBuffer(BaseBuffer):
         self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         # Handle timeouts termination properly if needed
         # see https://github.com/DLR-RM/stable-baselines3/issues/284
-        self.handle_timeout_termination = handle_timeout_termination
-        self.timeouts = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.truncations = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
 
         if psutil is not None:
             total_memory_usage = self.observations.nbytes + self.actions.nbytes + self.rewards.nbytes + self.dones.nbytes
@@ -238,6 +234,7 @@ class ReplayBuffer(BaseBuffer):
         action: np.ndarray,
         reward: np.ndarray,
         done: np.ndarray,
+        truncated: np.ndarray,
         infos: List[Dict[str, Any]],
     ) -> None:
 
@@ -261,9 +258,7 @@ class ReplayBuffer(BaseBuffer):
         self.actions[self.pos] = np.array(action).copy()
         self.rewards[self.pos] = np.array(reward).copy()
         self.dones[self.pos] = np.array(done).copy()
-
-        if self.handle_timeout_termination:
-            self.timeouts[self.pos] = np.array([info.get("TimeLimit.truncated", False) for info in infos])
+        self.truncations[self.pos] = np.array(truncated).copy()
 
         self.pos += 1
         if self.pos == self.buffer_size:
@@ -305,9 +300,9 @@ class ReplayBuffer(BaseBuffer):
             self._normalize_obs(self.observations[batch_inds, env_indices, :], env),
             self.actions[batch_inds, env_indices, :],
             next_obs,
-            # Only use dones that are not due to timeouts
-            # deactivated by default (timeouts is initialized as an array of False)
-            (self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(-1, 1),
+            # Only use dones that are not due to truncations (timeouts of the environment)
+            # (timeouts is initialized as an array of False)
+            (self.dones[batch_inds, env_indices] * (1 - self.truncations[batch_inds, env_indices])).reshape(-1, 1),
             self._normalize_reward(self.rewards[batch_inds, env_indices].reshape(-1, 1), env),
         )
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
@@ -498,9 +493,6 @@ class DictReplayBuffer(ReplayBuffer):
     :param n_envs: Number of parallel environments
     :param optimize_memory_usage: Enable a memory efficient variant
         Disabled for now (see https://github.com/DLR-RM/stable-baselines3/pull/243#discussion_r531535702)
-    :param handle_timeout_termination: Handle timeout termination (due to timelimit)
-        separately and treat the task as infinite horizon task.
-        https://github.com/DLR-RM/stable-baselines3/issues/284
     """
 
     def __init__(
@@ -511,7 +503,6 @@ class DictReplayBuffer(ReplayBuffer):
         device: Union[th.device, str] = "auto",
         n_envs: int = 1,
         optimize_memory_usage: bool = False,
-        handle_timeout_termination: bool = True,
     ):
         super(ReplayBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
 
@@ -539,11 +530,7 @@ class DictReplayBuffer(ReplayBuffer):
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=action_space.dtype)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
-
-        # Handle timeouts termination properly if needed
-        # see https://github.com/DLR-RM/stable-baselines3/issues/284
-        self.handle_timeout_termination = handle_timeout_termination
-        self.timeouts = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.truncations = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
 
         if psutil is not None:
             obs_nbytes = 0
@@ -573,6 +560,7 @@ class DictReplayBuffer(ReplayBuffer):
         action: np.ndarray,
         reward: np.ndarray,
         done: np.ndarray,
+        truncated: np.ndarray,
         infos: List[Dict[str, Any]],
     ) -> None:
         # Copy to avoid modification by reference
@@ -594,9 +582,7 @@ class DictReplayBuffer(ReplayBuffer):
         self.actions[self.pos] = np.array(action).copy()
         self.rewards[self.pos] = np.array(reward).copy()
         self.dones[self.pos] = np.array(done).copy()
-
-        if self.handle_timeout_termination:
-            self.timeouts[self.pos] = np.array([info.get("TimeLimit.truncated", False) for info in infos])
+        self.truncations[self.pos] = np.array(truncated).copy()
 
         self.pos += 1
         if self.pos == self.buffer_size:
@@ -632,9 +618,8 @@ class DictReplayBuffer(ReplayBuffer):
             observations=observations,
             actions=self.to_torch(self.actions[batch_inds, env_indices]),
             next_observations=next_observations,
-            # Only use dones that are not due to timeouts
-            # deactivated by default (timeouts is initialized as an array of False)
-            dones=self.to_torch(self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(
+            # Only use dones that are not due to truncations (timeouts in the environment)
+            dones=self.to_torch(self.dones[batch_inds, env_indices] * (1 - self.truncations[batch_inds, env_indices])).reshape(
                 -1, 1
             ),
             rewards=self.to_torch(self._normalize_reward(self.rewards[batch_inds, env_indices].reshape(-1, 1), env)),

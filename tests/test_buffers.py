@@ -27,15 +27,16 @@ class DummyEnv(gym.Env):
     def reset(self):
         self._t = 0
         obs = self._observations[0]
-        return obs
+        return obs, {}
 
     def step(self, action):
         self._t += 1
         index = self._t % len(self._observations)
         obs = self._observations[index]
-        done = self._t >= self._ep_length
+        done = False
+        truncated = self._t >= self._ep_length
         reward = self._rewards[index]
-        return obs, reward, done, {}
+        return obs, reward, done, truncated, {}
 
 
 class DummyDictEnv(gym.Env):
@@ -55,15 +56,16 @@ class DummyDictEnv(gym.Env):
     def reset(self):
         self._t = 0
         obs = {key: self._observations[0] for key in self.observation_space.spaces.keys()}
-        return obs
+        return obs, {}
 
     def step(self, action):
         self._t += 1
         index = self._t % len(self._observations)
         obs = {key: self._observations[index] for key in self.observation_space.spaces.keys()}
-        done = self._t >= self._ep_length
+        done = False
+        truncated = self._t >= self._ep_length
         reward = self._rewards[index]
-        return obs, reward, done, {}
+        return obs, reward, done, truncated, {}
 
 
 @pytest.mark.parametrize("replay_buffer_cls", [ReplayBuffer, DictReplayBuffer])
@@ -79,10 +81,10 @@ def test_replay_buffer_normalization(replay_buffer_cls):
     obs = env.get_original_obs()
     for _ in range(100):
         action = env.action_space.sample()
-        _, _, done, info = env.step(action)
+        _, _, done, truncated, info = env.step(action)
         next_obs = env.get_original_obs()
         reward = env.get_original_reward()
-        buffer.add(obs, next_obs, action, reward, done, info)
+        buffer.add(obs, next_obs, action, reward, done, truncated, info)
         obs = next_obs
 
     sample = buffer.sample(50, env)
@@ -114,15 +116,15 @@ def test_device_buffer(replay_buffer_cls, device):
     buffer = replay_buffer_cls(100, env.observation_space, env.action_space, device=device)
 
     # Interract and store transitions
-    obs = env.reset()
+    obs, info = env.reset()
     for _ in range(100):
         action = env.action_space.sample()
-        next_obs, reward, done, info = env.step(action)
+        next_obs, reward, done, truncation, info = env.step(action)
         if replay_buffer_cls in [RolloutBuffer, DictRolloutBuffer]:
             episode_start, values, log_prob = np.zeros(1), th.zeros(1), th.ones(1)
             buffer.add(obs, action, reward, episode_start, values, log_prob)
         else:
-            buffer.add(obs, next_obs, action, reward, done, info)
+            buffer.add(obs, next_obs, action, reward, done, truncation, info)
         obs = next_obs
 
     # Get data from the buffer

@@ -45,7 +45,6 @@ class ReplayBufferSamples(NamedTuple):
     actions: th.Tensor
     next_observations: th.Tensor
     dones: th.Tensor
-    truncations: th.Tensor
     rewards: th.Tensor
 
 
