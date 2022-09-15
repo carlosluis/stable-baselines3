@@ -152,11 +152,11 @@ class SimpleMultiObsEnv(gym.Env):
 
         got_to_end = self.state == self.max_state
         reward = 1 if got_to_end else reward
-        done = self.count > self.max_count or got_to_end
-
+        done = got_to_end
+        truncated = self.count > self.max_count
         self.log = f"Went {self.action2str[action]} in state {prev_state}, got to state {self.state}"
 
-        return self.get_state_mapping(), reward, done, {"got_to_end": got_to_end}
+        return self.get_state_mapping(), reward, done, truncated, {"got_to_end": got_to_end}
 
     def render(self, mode: str = "human") -> None:
         """
@@ -180,4 +180,4 @@ class SimpleMultiObsEnv(gym.Env):
             self.state = 0
         else:
             self.state = np.random.randint(0, self.max_state)
-        return self.state_mapping[self.state]
+        return self.state_mapping[self.state], {}

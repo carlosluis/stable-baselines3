@@ -38,14 +38,15 @@ class IdentityEnv(Env):
         self.current_step = 0
         self.num_resets += 1
         self._choose_next_state()
-        return self.state
+        return self.state, {}
 
     def step(self, action: Union[int, np.ndarray]) -> GymStepReturn:
         reward = self._get_reward(action)
         self._choose_next_state()
         self.current_step += 1
-        done = self.current_step >= self.ep_length
-        return self.state, reward, done, {}
+        truncated = self.current_step >= self.ep_length
+        done = False
+        return self.state, reward, done, truncated, {}
 
     def _choose_next_state(self) -> None:
         self.state = self.action_space.sample()
@@ -75,8 +76,9 @@ class IdentityEnvBox(IdentityEnv):
         reward = self._get_reward(action)
         self._choose_next_state()
         self.current_step += 1
-        done = self.current_step >= self.ep_length
-        return self.state, reward, done, {}
+        truncated = self.current_step >= self.ep_length
+        done = False
+        return self.state, reward, done, truncated, {}
 
     def _get_reward(self, action: np.ndarray) -> float:
         return 1.0 if (self.state - self.eps) <= action <= (self.state + self.eps) else 0.0
@@ -142,13 +144,14 @@ class FakeImageEnv(Env):
         if seed is not None:
             super().reset(seed=seed)
         self.current_step = 0
-        return self.observation_space.sample()
+        return self.observation_space.sample(), {}
 
     def step(self, action: Union[np.ndarray, int]) -> GymStepReturn:
         reward = 0.0
         self.current_step += 1
-        done = self.current_step >= self.ep_length
-        return self.observation_space.sample(), reward, done, {}
+        done = False
+        truncated = self.current_step >= self.ep_length
+        return self.observation_space.sample(), reward, done, truncated, {}
 
     def render(self, mode: str = "human") -> None:
         pass

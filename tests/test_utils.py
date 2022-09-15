@@ -53,9 +53,9 @@ def test_make_atari_env(env_id, n_envs, wrapper_kwargs):
 
     assert env.num_envs == n_envs
 
-    obs = env.reset()
+    obs, _ = env.reset()
 
-    new_obs, reward, _, _ = env.step([env.action_space.sample() for _ in range(n_envs)])
+    new_obs, reward, _, _, _ = env.step([env.action_space.sample() for _ in range(n_envs)])
 
     assert obs.shape == new_obs.shape
 
@@ -194,14 +194,14 @@ class AlwaysDoneWrapper(gym.Wrapper):
         obs, reward, done, info = self.env.step(action)
         self.needs_reset = done
         self.last_obs = obs
-        return obs, reward, True, info
+        return obs, reward, True, False, info
 
     def reset(self, **kwargs):
         if self.needs_reset:
             obs = self.env.reset(**kwargs)
             self.last_obs = obs
             self.needs_reset = False
-        return self.last_obs
+        return self.last_obs, {}
 
 
 @pytest.mark.parametrize("n_envs", [1, 2, 5, 7])

@@ -343,8 +343,8 @@ def test_save_load_replay_buffer(tmp_path, model_class):
     assert np.allclose(old_replay_buffer.actions, model.replay_buffer.actions)
     assert np.allclose(old_replay_buffer.rewards, model.replay_buffer.rewards)
     assert np.allclose(old_replay_buffer.dones, model.replay_buffer.dones)
-    assert np.allclose(old_replay_buffer.timeouts, model.replay_buffer.timeouts)
-    infos = [[{"TimeLimit.truncated": truncated}] for truncated in old_replay_buffer.timeouts]
+    assert np.allclose(old_replay_buffer.truncations, model.replay_buffer.truncations)
+    infos = [[{"TimeLimit.truncated": truncated}] for truncated in old_replay_buffer.truncations]
 
     # test extending replay buffer
     model.replay_buffer.extend(
@@ -353,6 +353,7 @@ def test_save_load_replay_buffer(tmp_path, model_class):
         old_replay_buffer.actions,
         old_replay_buffer.rewards,
         old_replay_buffer.dones,
+        old_replay_buffer.truncations,
         infos,
     )
 
@@ -377,7 +378,6 @@ def test_warn_buffer(recwarn, model_class, optimize_memory_usage):
         optimize_memory_usage=optimize_memory_usage,
         # we cannot use optimize_memory_usage and handle_timeout_termination
         # at the same time
-        replay_buffer_kwargs={"handle_timeout_termination": not optimize_memory_usage},
         policy_kwargs=dict(net_arch=[64]),
         learning_starts=10,
     )

@@ -9,6 +9,7 @@ Release 1.6.1a4 (WIP)
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Switched minimum tensorboard version to 2.9.1
+- Switched gym version to 0.26, implying the new gym API is used from now on.
 
 New Features:
 ^^^^^^^^^^^^^
@@ -1041,4 +1042,4 @@ And all the contributors:
 @Gregwar @ycheng517 @quantitative-technologies @bcollazo @git-thor @TibiGG @cool-RR @MWeltevrede
 @carlosluis @arjun-kg
 @Melanol @qgallouedec @francescoluciano @jlp-ue @burakdmb @timothe-chaumont @honglu2875
-@anand-bala @hughperkins @sidney-tio
+@anand-bala @hughperkins @sidney-tio @tlpss

@@ -90,7 +90,7 @@ def _check_nan(env: gym.Env) -> None:
     vec_env = VecCheckNan(DummyVecEnv([lambda: env]))
     for _ in range(10):
         action = np.array([env.action_space.sample()])
-        _, _, _, _ = vec_env.step(action)
+        _, _, _, _, _ = vec_env.step(action)
 
 
 def _is_goal_env(env: gym.Env) -> bool:
@@ -197,7 +197,7 @@ def _check_returned_values(env: gym.Env, observation_space: spaces.Space, action
     Check the returned values by the env when calling `.reset()` or `.step()` methods.
     """
     # because env inherits from gym.Env, we assume that `reset()` and `step()` methods exists
-    obs = env.reset()
+    obs, info = env.reset()
 
     if _is_goal_env(env):
         _check_goal_env_obs(obs, observation_space, "reset")
@@ -222,10 +222,10 @@ def _check_returned_values(env: gym.Env, observation_space: spaces.Space, action
     action = action_space.sample()
     data = env.step(action)
 
-    assert len(data) == 4, "The `step()` method must return four values: obs, reward, done, info"
+    assert len(data) == 5, "The `step()` method must return five values: obs, reward, done, truncated, info"
 
     # Unpack
-    obs, reward, done, info = data
+    obs, reward, done, truncated, info = data
 
     if _is_goal_env(env):
         _check_goal_env_obs(obs, observation_space, "step")
@@ -251,6 +251,7 @@ def _check_returned_values(env: gym.Env, observation_space: spaces.Space, action
     # We also allow int because the reward will be cast to float
     assert isinstance(reward, (float, int)), "The reward returned by `step()` must be a float"
     assert isinstance(done, bool), "The `done` signal must be a boolean"
+    assert isinstance(truncated, bool), "The `truncated` signal must be a boolean"
     assert isinstance(info, dict), "The `info` returned by `step()` must be a python dictionary"
 
     # Goal conditioned env
