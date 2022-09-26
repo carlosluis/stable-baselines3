@@ -30,6 +30,7 @@ Bug Fixes:
 - Fixed missing verbose parameter passing in the ``EvalCallback`` constructor (@burakdmb)
 - Fixed the issue that when updating the target network in DQN, SAC, TD3, the ``running_mean`` and ``running_var`` properties of batch norm layers are not updated (@honglu2875)
 - Fixed incorrect type annotation of the replay_buffer_class argument in ``common.OffPolicyAlgorithm`` initializer, where an instance instead of a class was required (@Rocamonde)
+- Fixed loading saved model with different number of envrionments
 - Removed ``forward()`` abstract method declaration from ``common.policies.BaseModel`` (already defined in ``torch.nn.Module``) to fix type errors in subclasses (@Rocamonde)
 
 Deprecations:
@@ -38,8 +39,8 @@ Deprecations:
 Others:
 ^^^^^^^
 - Fixed ``DictReplayBuffer.next_observations`` typing (@qgallouedec)
-
 - Added support for ``device="auto"`` in buffers and made it default (@qgallouedec)
+- Updated ``ResultsWriter` (used internally by ``Monitor`` wrapper) to automatically create missing directories when ``filename`` is a path (@dominicgkerr)
 
 Documentation:
 ^^^^^^^^^^^^^^
@@ -49,7 +50,7 @@ Documentation:
 - Fixed typo in ppo doc (@francescoluciano)
 - Fixed typo in install doc(@jlp-ue)
 - Clarified and standardized verbosity documentation
-
+- Added link to a GitHub issue in the custom policy documentation (@AlexPasqua)
 
 Release 1.6.0 (2022-07-11)
 ---------------------------
@@ -1042,4 +1043,4 @@ And all the contributors:
 @Gregwar @ycheng517 @quantitative-technologies @bcollazo @git-thor @TibiGG @cool-RR @MWeltevrede
 @carlosluis @arjun-kg
 @Melanol @qgallouedec @francescoluciano @jlp-ue @burakdmb @timothe-chaumont @honglu2875
-@anand-bala @hughperkins @sidney-tio @tlpss
+@anand-bala @hughperkins @sidney-tio @AlexPasqua @dominicgkerr @tlpss
