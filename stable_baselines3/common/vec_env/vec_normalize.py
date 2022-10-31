@@ -2,7 +2,7 @@ import pickle
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 
 from stable_baselines3.common import utils

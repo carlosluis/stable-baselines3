@@ -7,7 +7,7 @@ from inspect import signature
 from itertools import zip_longest
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch as th
 
@@ -20,7 +20,7 @@ except ImportError:
     SummaryWriter = None
 
 from stable_baselines3.common.logger import Logger, configure
-from stable_baselines3.common.type_aliases import GymEnv, Schedule, TensorDict, TrainFreq, TrainFrequencyUnit
+from stable_baselines3.common.type_aliases import gymnasium as gymEnv, Schedule, TensorDict, TrainFreq, TrainFrequencyUnit
 
 
 def set_random_seed(seed: int, using_cuda: bool = False) -> None:

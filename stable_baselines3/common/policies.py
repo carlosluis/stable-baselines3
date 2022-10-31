@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch as th
 from torch import nn

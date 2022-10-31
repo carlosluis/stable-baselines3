@@ -22,8 +22,8 @@ That is to say, your environment must implement the following methods (and inher
 
 .. code-block:: python
 
-  import gym
-  from gym import spaces
+  import gymnasium as gym
+  from gymnasium import spaces
 
   class CustomEnv(gym.Env):
       """Custom Environment that follows gym interface"""

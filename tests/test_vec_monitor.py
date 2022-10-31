@@ -3,7 +3,7 @@ import json
 import os
 import uuid
 
-import gym
+import gymnasium as gym
 import pandas
 import pytest
 

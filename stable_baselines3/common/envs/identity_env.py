@@ -1,10 +1,10 @@
 from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
-from gym import Env, Space
+from gymnasium import Env, Space
 from gym.spaces import Box, Discrete, MultiBinary, MultiDiscrete
 
-from stable_baselines3.common.type_aliases import Gym26ResetReturn, Gym26StepReturn
+from stable_baselines3.common.type_aliases import gymnasium as gym26ResetReturn, Gym26StepReturn
 
 
 class IdentityEnv(Env):

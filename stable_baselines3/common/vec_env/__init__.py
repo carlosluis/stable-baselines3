@@ -17,7 +17,7 @@ from stable_baselines3.common.vec_env.vec_video_recorder import VecVideoRecorder
 
 # Avoid circular import
 if typing.TYPE_CHECKING:
-    from stable_baselines3.common.type_aliases import GymEnv
+    from stable_baselines3.common.type_aliases import gymnasium as gymEnv
 
 
 def unwrap_vec_wrapper(env: Union["GymEnv", VecEnv], vec_wrapper_class: Type[VecEnvWrapper]) -> Optional[VecEnvWrapper]:

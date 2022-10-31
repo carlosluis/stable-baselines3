@@ -1,8 +1,8 @@
 from typing import Dict, Tuple
 
-import gym
+import gymnasium as gym
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 
 try:
     import cv2  # pytype:disable=import-error
@@ -11,7 +11,7 @@ try:
 except ImportError:
     cv2 = None
 
-from stable_baselines3.common.type_aliases import Gym26ResetReturn, Gym26StepReturn
+from stable_baselines3.common.type_aliases import gymnasium as gym26ResetReturn, Gym26StepReturn
 
 
 class NoopResetEnv(gym.Wrapper):

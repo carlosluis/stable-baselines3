@@ -62,7 +62,7 @@ using ``policy_kwargs`` parameter:
 
 .. code-block:: python
 
-  import gym
+  import gymnasium as gym
   import torch as th
 
   from stable_baselines3 import PPO
@@ -103,7 +103,7 @@ that derives from ``BaseFeaturesExtractor`` and then pass it to the model when t
 
 .. code-block:: python
 
-  import gym
+  import gymnasium as gym
   import torch as th
   import torch.nn as nn
 
@@ -170,7 +170,7 @@ downsampling and "vector" with a single linear layer.
 
 .. code-block:: python
 
-  import gym
+  import gymnasium as gym
   import torch as th
   from torch import nn
 
@@ -288,7 +288,7 @@ If your task requires even more granular control over the policy/value architect
 
   from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 
-  import gym
+  import gymnasium as gym
   import torch as th
   from torch import nn
 

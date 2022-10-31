@@ -7,11 +7,11 @@ import time
 from glob import glob
 from typing import Dict, List, Optional, Tuple, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 import pandas
 
-from stable_baselines3.common.type_aliases import Gym26ResetReturn, Gym26StepReturn
+from stable_baselines3.common.type_aliases import gymnasium as gym26ResetReturn, Gym26StepReturn
 
 
 class Monitor(gym.Wrapper):

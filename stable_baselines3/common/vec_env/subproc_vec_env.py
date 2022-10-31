@@ -2,7 +2,7 @@ import multiprocessing as mp
 from collections import OrderedDict
 from typing import Any, Callable, List, Optional, Sequence, Tuple, Type, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 
 from stable_baselines3.common.vec_env.base_vec_env import (

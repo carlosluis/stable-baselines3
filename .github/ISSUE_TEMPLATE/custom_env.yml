@@ -34,7 +34,7 @@ body:
         Please use the [markdown code blocks](https://help.github.com/en/articles/creating-and-highlighting-code-blocks) for both code and stack traces.
       value: |
         ```python
-        import gym
+        import gymnasium as gym
         import numpy as np
 
         from stable_baselines3 import A2C
