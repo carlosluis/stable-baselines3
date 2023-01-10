@@ -91,7 +91,9 @@ class Monitor(gym.Wrapper):
         """
         if self.needs_reset:
             raise RuntimeError("Tried to step environment that needs reset")
-        observation, reward, terminated, truncated, info = self.env.step(action)
+            
+        x = self.env.step(action)
+        observation, reward, terminated, truncated, info = x
         self.rewards.append(reward)
         if terminated or truncated:
             self.needs_reset = True
